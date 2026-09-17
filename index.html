@@ -324,41 +324,52 @@
             tbody.innerHTML = '';
 
             const statusAlvo = ['erro', 'enviado'];
-            let contagemExibidos = 0;
+            const itensFila = [];
 
+            // 1. Extração e filtragem dos registros
             Object.entries(endpointStats).forEach(([endpoint, info]) => {
                 Object.entries(info.statusBreakdown).forEach(([status, quantidade]) => {
                     const statusLower = status.toLowerCase();
 
-                    // Renderiza apenas os registros com status "erro" ou "enviado"
                     if (statusAlvo.includes(statusLower) && quantidade > 0) {
-                        contagemExibidos++;
-
-                        const tr = document.createElement('tr');
-                        tr.className = 'hover:bg-slate-700/30';
-
-                        const isErro = statusLower.includes('erro') || statusLower.includes('falha');
-                        const statusClass = isErro 
-                            ? 'bg-rose-950 text-rose-400 border-rose-800' 
-                            : 'bg-amber-950 text-amber-400 border-amber-800';
-
-                        const statusBadge = `<span class="px-2 py-0.5 rounded border ${statusClass}">${status}</span>`;
-                        const btnAction = `<button class="bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded transition shadow-sm">Tratar</button>`;
-                        const ultimaData = info.ultimasOcorrencias[status] || '-';
-
-                        tr.innerHTML = `
-                            <td class="p-3 font-mono text-emerald-300">${endpoint}</td>
-                            <td class="p-3">${statusBadge}</td>
-                            <td class="p-3 font-bold ${isErro ? 'text-rose-400' : 'text-amber-400'}">${quantidade}</td>
-                            <td class="p-3 text-slate-400">${ultimaData}</td>
-                            <td class="p-3 text-right">${btnAction}</td>
-                        `;
-                        tbody.appendChild(tr);
+                        itensFila.push({
+                            endpoint: endpoint,
+                            status: status,
+                            quantidade: quantidade,
+                            ultimaData: info.ultimasOcorrencias[status] || '-'
+                        });
                     }
                 });
             });
 
-            if (contagemExibidos === 0) {
+            // 2. Ordenação por quantidade de ocorrências (Maior para Menor)
+            itensFila.sort((a, b) => b.quantidade - a.quantidade);
+
+            // 3. Renderização na tabela
+            itensFila.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-700/30';
+
+                const statusLower = item.status.toLowerCase();
+                const isErro = statusLower.includes('erro') || statusLower.includes('falha');
+                const statusClass = isErro 
+                    ? 'bg-rose-950 text-rose-400 border-rose-800' 
+                    : 'bg-amber-950 text-amber-400 border-amber-800';
+
+                const statusBadge = `<span class="px-2 py-0.5 rounded border ${statusClass}">${item.status}</span>`;
+                const btnAction = `<button class="bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded transition shadow-sm">Tratar</button>`;
+
+                tr.innerHTML = `
+                    <td class="p-3 font-mono text-emerald-300">${item.endpoint}</td>
+                    <td class="p-3">${statusBadge}</td>
+                    <td class="p-3 font-bold ${isErro ? 'text-rose-400' : 'text-amber-400'}">${item.quantidade}</td>
+                    <td class="p-3 text-slate-400">${item.ultimaData}</td>
+                    <td class="p-3 text-right">${btnAction}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            if (itensFila.length === 0) {
                 tbody.innerHTML = `
                     <tr>
                         <td colspan="5" class="p-6 text-center text-emerald-400 font-medium">
