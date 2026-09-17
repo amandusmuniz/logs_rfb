@@ -51,7 +51,7 @@
                 <h2 class="text-2xl font-bold text-white mt-1" id="totalLogs">0</h2>
             </div>
             <div class="bg-rose-950/30 border border-rose-800/50 p-4 rounded-xl">
-                <p class="text-rose-400 text-xs font-medium uppercase">Endpoints com Falhas</p>
+                <p class="text-rose-400 text-xs font-medium uppercase">Endpoints com Falhas (Erro/Enviado)</p>
                 <h2 class="text-2xl font-bold text-rose-400 mt-1" id="totalErrors">0</h2>
             </div>
             <div class="bg-amber-950/30 border border-amber-800/50 p-4 rounded-xl">
@@ -124,15 +124,12 @@
             const icon = document.getElementById('refreshIcon');
 
             try {
-                // Efeito visual de rotação no ícone durante a requisição
                 if (icon) icon.classList.add('animate-spin');
                 if (btn) btn.disabled = true;
 
-                // Requisição do arquivo evitando cache
                 const response = await fetch(`./dados.xlsx?t=${new Date().getTime()}`);
                 if (!response.ok) throw new Error("Não foi possível carregar o arquivo dados.xlsx");
 
-                // Captura a data/hora de alteração do próprio arquivo XLSX
                 const lastModifiedHeader = response.headers.get('Last-Modified');
                 if (lastModifiedHeader) {
                     const fileDate = new Date(lastModifiedHeader);
@@ -141,20 +138,16 @@
                     document.getElementById('fileLastModified').innerText = 'Indisponível no servidor';
                 }
 
-                // Processa o buffer do Excel
                 const arrayBuffer = await response.arrayBuffer();
                 const workbook = XLSX.read(arrayBuffer, { type: 'array' });
 
-                // Pega a primeira aba da planilha
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
 
-                // Converte em matriz JSON
                 const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
                 processarDados(rawData);
 
-                // Exibe a data e hora do momento da leitura
                 const agora = new Date();
                 document.getElementById('lastUpdate').innerText = agora.toLocaleString('pt-BR');
 
@@ -162,7 +155,6 @@
                 console.error("Erro ao ler dados.xlsx:", error);
                 document.getElementById('lastUpdate').innerText = "Falha ao carregar";
             } finally {
-                // Remove o efeito de animação
                 if (icon) icon.classList.remove('animate-spin');
                 if (btn) btn.disabled = false;
             }
@@ -171,7 +163,6 @@
         function processarDados(rows) {
             if (!rows || rows.length < 5) return;
 
-            // Identifica a linha do cabeçalho
             let headerIndex = -1;
             for (let i = 0; i < rows.length; i++) {
                 if (rows[i] && rows[i].includes('Endpoint')) {
@@ -189,34 +180,42 @@
 
             const dataRows = rows.slice(headerIndex + 1).filter(r => r[endpointIdx]);
 
-            // Métrica Geral
             const totalLogs = dataRows.length;
             const endpointStats = {};
             const statusCounts = {};
 
+            // Lista de status considerados como falhas
+            const statusFalhas = ['erro', 'enviado'];
+
             dataRows.forEach(row => {
                 const endpoint = row[endpointIdx] || 'Outros';
-                const status = row[statusIdx] || 'DESCONHECIDO';
+                const status = String(row[statusIdx] || 'DESCONHECIDO').trim();
                 const dataOcorrencia = row[dataOcorrenciaIdx] || '-';
 
                 statusCounts[status] = (statusCounts[status] || 0) + 1;
 
                 if (!endpointStats[endpoint]) {
-                    endpointStats[endpoint] = { total: 0, status: status, ultima: dataOcorrencia };
+                    endpointStats[endpoint] = { total: 0, status: status, temFalha: false, ultima: dataOcorrencia };
                 }
+
                 endpointStats[endpoint].total += 1;
+
+                // Se houver qualquer registro com status 'erro' ou 'enviado', marca o endpoint com falha
+                if (statusFalhas.includes(status.toLowerCase())) {
+                    endpointStats[endpoint].temFalha = true;
+                }
             });
+
+            // Contagem de Endpoints com Falhas (considerando os status 'erro' e 'enviado')
+            const endpointsComFalhas = Object.keys(endpointStats).filter(ep => endpointStats[ep].temFalha).length;
+            const totalEndpoints = Object.keys(endpointStats).length;
+            const totalZerados = totalEndpoints - endpointsComFalhas;
+            const pctZerados = totalEndpoints > 0 ? Math.round((totalZerados / totalEndpoints) * 100) : 100;
+            const totalEmAnalise = statusCounts['EM PROCESSAMENTO'] || statusCounts['PENDENTE'] || 0;
 
             // Atualização dos Cards
             document.getElementById('totalLogs').innerText = totalLogs.toLocaleString('pt-BR');
-
-            const totalComErro = Object.keys(endpointStats).filter(ep => endpointStats[ep].status !== 'COMPLETO' && endpointStats[ep].status !== '200 OK').length;
-            const totalEmAnalise = statusCounts['EM PROCESSAMENTO'] || statusCounts['PENDENTE'] || 0;
-            const totalEndpoints = Object.keys(endpointStats).length;
-            const totalZerados = totalEndpoints - totalComErro;
-            const pctZerados = totalEndpoints > 0 ? Math.round((totalZerados / totalEndpoints) * 100) : 100;
-
-            document.getElementById('totalErrors').innerText = totalComErro;
+            document.getElementById('totalErrors').innerText = endpointsComFalhas;
             document.getElementById('inProgress').innerText = totalEmAnalise;
             document.getElementById('resolvedEndpoints').innerText = `${pctZerados}%`;
 
@@ -284,7 +283,7 @@
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-slate-700/30';
 
-                const isOk = info.status === 'COMPLETO' || info.status === '200 OK';
+                const isOk = !info.temFalha;
                 const statusBadge = isOk 
                     ? `<span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">${info.status}</span>`
                     : `<span class="px-2 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-800">${info.status}</span>`;
