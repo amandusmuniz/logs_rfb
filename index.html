@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Gestão de Log RFB - Target Zero</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+
+    <!-- Header -->
+    <header class="border-b border-slate-800 bg-slate-950/50 backdrop-blur p-4">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold text-emerald-400 flex items-center gap-2">
+                    <span class="inline-block w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></span>
+                    Gestão de Integridade de Endpoints RFB
+                </h1>
+                <p class="text-xs text-slate-400">Meta: 0 Erros em Produção</p>
+            </div>
+            <div class="text-right">
+                <span class="text-xs bg-slate-800 text-slate-300 px-3 py-1 rounded-full border border-slate-700">
+                    Arquivo: com.itajai.britj.CustomLogRfb_2.xlsx
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-6 space-y-6">
+
+        <!-- Métrica Principal - Zero Error Target -->
+        <section class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-slate-800/60 border border-slate-700 p-4 rounded-xl">
+                <p class="text-slate-400 text-xs font-medium uppercase">Total de Ocorrências</p>
+                <h2 class="text-2xl font-bold text-white mt-1" id="totalLogs">1,248</h2>
+            </div>
+            <div class="bg-rose-950/30 border border-rose-800/50 p-4 rounded-xl">
+                <p class="text-rose-400 text-xs font-medium uppercase">Endpoints com Falhas</p>
+                <h2 class="text-2xl font-bold text-rose-400 mt-1" id="totalErrors">14</h2>
+            </div>
+            <div class="bg-amber-950/30 border border-amber-800/50 p-4 rounded-xl">
+                <p class="text-amber-400 text-xs font-medium uppercase">Em Resolução</p>
+                <h2 class="text-2xl font-bold text-amber-400 mt-1" id="inProgress">5</h2>
+            </div>
+            <div class="bg-emerald-950/30 border border-emerald-800/50 p-4 rounded-xl">
+                <p class="text-emerald-400 text-xs font-medium uppercase">Endpoints Zerados (100% OK)</p>
+                <h2 class="text-2xl font-bold text-emerald-400 mt-1" id="resolvedEndpoints">85%</h2>
+            </div>
+        </section>
+
+        <!-- Charts -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Gráfico de Rosca: Status de Resolução -->
+            <div class="bg-slate-800/60 border border-slate-700 p-4 rounded-xl">
+                <h3 class="text-sm font-semibold text-slate-200 mb-4">Progresso do Objetivo (Zero Erros)</h3>
+                <div class="h-64 flex justify-center items-center">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Gráfico de Barras: Erros por Endpoint -->
+            <div class="bg-slate-800/60 border border-slate-700 p-4 rounded-xl lg:col-span-2">
+                <h3 class="text-sm font-semibold text-slate-200 mb-4">Volume de Erros por Endpoint Criticalidade</h3>
+                <div class="h-64">
+                    <canvas id="endpointChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tabela Operacional de Gestão de Erros -->
+        <section class="bg-slate-800/60 border border-slate-700 rounded-xl overflow-hidden">
+            <div class="p-4 border-b border-slate-700 flex justify-between items-center">
+                <h3 class="text-sm font-semibold text-slate-200">Fila de Resolução por Endpoint</h3>
+                <input type="text" placeholder="Filtrar endpoint..." class="bg-slate-900 text-xs px-3 py-1.5 rounded-lg border border-slate-700 focus:outline-none focus:border-emerald-500 w-64">
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-300">
+                    <thead class="bg-slate-900/80 uppercase text-slate-400 border-b border-slate-700">
+                        <tr>
+                            <th class="p-3">Endpoint / Serviço</th>
+                            <th class="p-3">CÓD / Status HTTP</th>
+                            <th class="p-3">Qtd Erros</th>
+                            <th class="p-3">Última Ocorrência</th>
+                            <th class="p-3">Status</th>
+                            <th class="p-3 text-right">Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700/50">
+                        <tr class="hover:bg-slate-700/30">
+                            <td class="p-3 font-mono text-emerald-300">/api/rfb/consulta-cnpj</td>
+                            <td class="p-3"><span class="px-2 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-800">500 Internal Error</span></td>
+                            <td class="p-3 font-bold text-rose-400">421</td>
+                            <td class="p-3 text-slate-400">Há 5 min</td>
+                            <td class="p-3"><span class="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-medium">Pendente</span></td>
+                            <td class="p-3 text-right">
+                                <button class="bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded transition">Tratar</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-slate-700/30">
+                            <td class="p-3 font-mono text-emerald-300">/api/rfb/valida-inscricao</td>
+                            <td class="p-3"><span class="px-2 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-800">504 Gateway Timeout</span></td>
+                            <td class="p-3 font-bold text-amber-400">89</td>
+                            <td class="p-3 text-slate-400">Há 12 min</td>
+                            <td class="p-3"><span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium">Em Análise</span></td>
+                            <td class="p-3 text-right">
+                                <button class="bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded transition">Tratar</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-slate-700/30">
+                            <td class="p-3 font-mono text-emerald-300">/api/rfb/certidao-negativa</td>
+                            <td class="p-3"><span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">200 OK</span></td>
+                            <td class="p-3 font-bold text-emerald-400">0</td>
+                            <td class="p-3 text-slate-400">Sem erros hoje</td>
+                            <td class="p-3"><span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-medium">Zerado</span></td>
+                            <td class="p-3 text-right">
+                                <button class="bg-slate-700 text-slate-400 px-2.5 py-1 rounded cursor-not-allowed">Concluído</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Script Chart.js -->
+    <script>
+        // Gráfico de Rosca (Status de Resolução)
+        const ctxStatus = document.getElementById('statusChart').getContext('2d');
+        new Chart(ctxStatus, {
+            type: 'doughnut',
+            data: {
+                labels: ['Pendentes', 'Em Análise', 'Zerados'],
+                datasets: [{
+                    data: [14, 5, 81],
+                    backgroundColor: ['#f43f5e', '#f59e0b', '#10b981'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { color: '#94a3b8' } }
+                }
+            }
+        });
+
+        // Gráfico de Barras (Endpoints)
+        const ctxEndpoint = document.getElementById('endpointChart').getContext('2d');
+        new Chart(ctxEndpoint, {
+            type: 'bar',
+            data: {
+                labels: ['consulta-cnpj', 'valida-inscricao', 'certidao-negativa', 'sincroniza-rfb', 'status-lote'],
+                datasets: [{
+                    label: 'Volume de Erros',
+                    data: [421, 89, 0, 12, 4],
+                    backgroundColor: '#f43f5e',
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { ticks: { color: '#94a3b8' }, grid: { display: false } },
+                    y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
