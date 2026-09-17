@@ -204,7 +204,7 @@
             const endpointStats = {};
             const statusCounts = {};
 
-            // Lista de status considerados como falhas
+            // Status considerados como alvo da fila
             const statusFalhas = ['erro', 'enviado'];
             let totalQtdFalhas = 0;
 
@@ -222,11 +222,12 @@
                 }
 
                 if (!endpointStats[endpoint]) {
-                    endpointStats[endpoint] = { total: 0, status: status, temFalha: false, ultima: dataOcorrencia, statusBreakdown: {} };
+                    endpointStats[endpoint] = { total: 0, temFalha: false, statusBreakdown: {}, ultimasOcorrencias: {} };
                 }
 
                 endpointStats[endpoint].total += 1;
                 endpointStats[endpoint].statusBreakdown[status] = (endpointStats[endpoint].statusBreakdown[status] || 0) + 1;
+                endpointStats[endpoint].ultimasOcorrencias[status] = dataOcorrencia;
 
                 if (statusFalhas.includes(statusLower)) {
                     endpointStats[endpoint].temFalha = true;
@@ -272,7 +273,6 @@
                 }
             });
 
-            // Exibe TODOS os endpoints presentes no dataset
             const endpointLabels = Object.keys(endpointStats);
             const allStatuses = Array.from(new Set(Object.values(endpointStats).flatMap(ep => Object.keys(ep.statusBreakdown))));
 
@@ -323,43 +323,46 @@
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
 
-            // Status considerados finalizados/concluídos que NÃO devem aparecer na Fila de Resolução
-            const statusIgnorados = ['completo', 'sucesso', 'ok', 'processado'];
-
+            const statusAlvo = ['erro', 'enviado'];
             let contagemExibidos = 0;
 
             Object.entries(endpointStats).forEach(([endpoint, info]) => {
-                const statusAtual = String(info.status || '').trim().toLowerCase();
+                Object.entries(info.statusBreakdown).forEach(([status, quantidade]) => {
+                    const statusLower = status.toLowerCase();
 
-                // Pula a renderização caso o endpoint seja considerado "completo" ou não tenha falhas pendentes
-                if (statusIgnorados.includes(statusAtual) || !info.temFalha) {
-                    return;
-                }
+                    // Renderiza apenas os registros com status "erro" ou "enviado"
+                    if (statusAlvo.includes(statusLower) && quantidade > 0) {
+                        contagemExibidos++;
 
-                contagemExibidos++;
+                        const tr = document.createElement('tr');
+                        tr.className = 'hover:bg-slate-700/30';
 
-                const tr = document.createElement('tr');
-                tr.className = 'hover:bg-slate-700/30';
+                        const isErro = statusLower.includes('erro') || statusLower.includes('falha');
+                        const statusClass = isErro 
+                            ? 'bg-rose-950 text-rose-400 border-rose-800' 
+                            : 'bg-amber-950 text-amber-400 border-amber-800';
 
-                const statusBadge = `<span class="px-2 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-800">${info.status}</span>`;
-                const btnAction = `<button class="bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded transition shadow-sm">Tratar</button>`;
+                        const statusBadge = `<span class="px-2 py-0.5 rounded border ${statusClass}">${status}</span>`;
+                        const btnAction = `<button class="bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded transition shadow-sm">Tratar</button>`;
+                        const ultimaData = info.ultimasOcorrencias[status] || '-';
 
-                tr.innerHTML = `
-                    <td class="p-3 font-mono text-emerald-300">${endpoint}</td>
-                    <td class="p-3">${statusBadge}</td>
-                    <td class="p-3 font-bold text-rose-400">${info.total}</td>
-                    <td class="p-3 text-slate-400">${info.ultima}</td>
-                    <td class="p-3 text-right">${btnAction}</td>
-                `;
-                tbody.appendChild(tr);
+                        tr.innerHTML = `
+                            <td class="p-3 font-mono text-emerald-300">${endpoint}</td>
+                            <td class="p-3">${statusBadge}</td>
+                            <td class="p-3 font-bold ${isErro ? 'text-rose-400' : 'text-amber-400'}">${quantidade}</td>
+                            <td class="p-3 text-slate-400">${ultimaData}</td>
+                            <td class="p-3 text-right">${btnAction}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    }
+                });
             });
 
-            // Mensagem amigável caso não haja endpoints pendentes de resolução
             if (contagemExibidos === 0) {
                 tbody.innerHTML = `
                     <tr>
                         <td colspan="5" class="p-6 text-center text-emerald-400 font-medium">
-                            Nenhum endpoint pendente de tratamento! Todos os registros estão concluídos.
+                            Nenhum endpoint pendente de tratamento com status ERRO ou ENVIADO!
                         </td>
                     </tr>
                 `;
