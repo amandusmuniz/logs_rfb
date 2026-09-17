@@ -55,7 +55,7 @@
                 <h2 class="text-2xl font-bold text-rose-400 mt-1" id="totalErrors">0</h2>
             </div>
             <div class="bg-amber-950/30 border border-amber-800/50 p-4 rounded-xl">
-                <p class="text-amber-400 text-xs font-medium uppercase">Em Resolução / Processamento</p>
+                <p class="text-amber-400 text-xs font-medium uppercase">Quantidade de Falhas</p>
                 <h2 class="text-2xl font-bold text-amber-400 mt-1" id="inProgress">0</h2>
             </div>
             <div class="bg-emerald-950/30 border border-emerald-800/50 p-4 rounded-xl">
@@ -186,6 +186,7 @@
 
             // Lista de status considerados como falhas
             const statusFalhas = ['erro', 'enviado'];
+            let totalQtdFalhas = 0;
 
             dataRows.forEach(row => {
                 const endpoint = row[endpointIdx] || 'Outros';
@@ -194,6 +195,13 @@
 
                 statusCounts[status] = (statusCounts[status] || 0) + 1;
 
+                const statusLower = status.toLowerCase();
+
+                // Incrementa a quantidade total de falhas se o status for erro ou enviado
+                if (statusFalhas.includes(statusLower)) {
+                    totalQtdFalhas += 1;
+                }
+
                 if (!endpointStats[endpoint]) {
                     endpointStats[endpoint] = { total: 0, status: status, temFalha: false, ultima: dataOcorrencia };
                 }
@@ -201,7 +209,7 @@
                 endpointStats[endpoint].total += 1;
 
                 // Se houver qualquer registro com status 'erro' ou 'enviado', marca o endpoint com falha
-                if (statusFalhas.includes(status.toLowerCase())) {
+                if (statusFalhas.includes(statusLower)) {
                     endpointStats[endpoint].temFalha = true;
                 }
             });
@@ -211,12 +219,11 @@
             const totalEndpoints = Object.keys(endpointStats).length;
             const totalZerados = totalEndpoints - endpointsComFalhas;
             const pctZerados = totalEndpoints > 0 ? Math.round((totalZerados / totalEndpoints) * 100) : 100;
-            const totalEmAnalise = statusCounts['EM PROCESSAMENTO'] || statusCounts['PENDENTE'] || 0;
 
             // Atualização dos Cards
             document.getElementById('totalLogs').innerText = totalLogs.toLocaleString('pt-BR');
             document.getElementById('totalErrors').innerText = endpointsComFalhas;
-            document.getElementById('inProgress').innerText = totalEmAnalise;
+            document.getElementById('inProgress').innerText = totalQtdFalhas.toLocaleString('pt-BR');
             document.getElementById('resolvedEndpoints').innerText = `${pctZerados}%`;
 
             // Gráficos e Tabela
