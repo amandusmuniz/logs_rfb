@@ -124,6 +124,7 @@
             'sucesso': '#10b981',
             'ok': '#10b981',
             'processado': '#10b981',
+            'completo': '#10b981',
             'erro': '#f43f5e',
             'falha': '#f43f5e',
             'enviado': '#f59e0b',
@@ -322,28 +323,47 @@
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
 
+            // Status considerados finalizados/concluídos que NÃO devem aparecer na Fila de Resolução
+            const statusIgnorados = ['completo', 'sucesso', 'ok', 'processado'];
+
+            let contagemExibidos = 0;
+
             Object.entries(endpointStats).forEach(([endpoint, info]) => {
+                const statusAtual = String(info.status || '').trim().toLowerCase();
+
+                // Pula a renderização caso o endpoint seja considerado "completo" ou não tenha falhas pendentes
+                if (statusIgnorados.includes(statusAtual) || !info.temFalha) {
+                    return;
+                }
+
+                contagemExibidos++;
+
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-slate-700/30';
 
-                const isOk = !info.temFalha;
-                const statusBadge = isOk 
-                    ? `<span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">${info.status}</span>`
-                    : `<span class="px-2 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-800">${info.status}</span>`;
-
-                const btnAction = isOk 
-                    ? `<button class="bg-slate-700 text-slate-400 px-2.5 py-1 rounded cursor-not-allowed">Concluído</button>`
-                    : `<button class="bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded transition">Tratar</button>`;
+                const statusBadge = `<span class="px-2 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-800">${info.status}</span>`;
+                const btnAction = `<button class="bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded transition shadow-sm">Tratar</button>`;
 
                 tr.innerHTML = `
                     <td class="p-3 font-mono text-emerald-300">${endpoint}</td>
                     <td class="p-3">${statusBadge}</td>
-                    <td class="p-3 font-bold ${isOk ? 'text-emerald-400' : 'text-rose-400'}">${info.total}</td>
+                    <td class="p-3 font-bold text-rose-400">${info.total}</td>
                     <td class="p-3 text-slate-400">${info.ultima}</td>
                     <td class="p-3 text-right">${btnAction}</td>
                 `;
                 tbody.appendChild(tr);
             });
+
+            // Mensagem amigável caso não haja endpoints pendentes de resolução
+            if (contagemExibidos === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="p-6 text-center text-emerald-400 font-medium">
+                            Nenhum endpoint pendente de tratamento! Todos os registros estão concluídos.
+                        </td>
+                    </tr>
+                `;
+            }
         }
 
         // Filtro em tempo real
