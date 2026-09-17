@@ -3,203 +3,297 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard de Gestão de KPI - Zero Erros</title>
-    <!-- Tailwind CSS para estilização -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chart.js para gráficos -->
+    <title>Dashboard de Gestão de Log RFB - Target Zero</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/tailwindcss-cdn@3.4.1/tailwindcss.js"></script>
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- SheetJS (xlsx) para leitura da planilha -->
+    <!-- SheetJS (XLSX Parser) -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
-<body class="bg-gray-900 text-white min-h-screen p-6">
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
 
-    <!-- Cabeçalho -->
-    <div class="flex justify-between items-center mb-8 border-b border-gray-700 pb-4">
-        <div>
-            <h1 class="text-3xl font-bold text-blue-400">Dashboard de Qualidade - API Endpoints</h1>
-            <p class="text-gray-400 text-sm">Meta: 0 Erros por Endpoint</p>
-        </div>
-        <div class="text-right">
-            <span id="status-badge" class="px-3 py-1 rounded-full text-xs font-semibold bg-gray-700 text-gray-300">Carregando...</span>
-            <p class="text-xs text-gray-500 mt-2">Última atualização: <span id="last-updated">-</span></p>
-        </div>
-    </div>
-
-    <!-- Cards de KPIs -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
-            <h3 class="text-gray-400 text-sm">Total de Endpoints</h3>
-            <p id="kpi-total-endpoints" class="text-3xl font-bold mt-2">0</p>
-        </div>
-        <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
-            <h3 class="text-gray-400 text-sm">Total de Erros acumulados</h3>
-            <p id="kpi-total-erros" class="text-3xl font-bold text-red-500 mt-2">0</p>
-        </div>
-        <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
-            <h3 class="text-gray-400 text-sm">Endpoints com Zero Erros (Meta)</h3>
-            <p id="kpi-zero-erros" class="text-3xl font-bold text-green-500 mt-2">0</p>
-        </div>
-        <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
-            <h3 class="text-gray-400 text-sm">Taxa de Conformidade</h3>
-            <p id="kpi-conformidade" class="text-3xl font-bold text-blue-500 mt-2">0%</p>
-        </div>
-    </div>
-
-    <!-- Seção Principal: Gráfico e Tabela -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <!-- Gráfico de Erros por Endpoint -->
-        <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
-            <h2 class="text-xl font-bold mb-4 text-gray-200">Erros por Endpoint</h2>
-            <div class="relative h-72">
-                <canvas id="chartErros"></canvas>
+    <!-- Header -->
+    <header class="border-b border-slate-800 bg-slate-950/50 backdrop-blur p-4">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold text-emerald-400 flex items-center gap-2">
+                    <span class="inline-block w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></span>
+                    Gestão de Integridade de Endpoints RFB
+                </h1>
+                <p class="text-xs text-slate-400">Meta: 0 Erros em Produção</p>
+            </div>
+            <div class="text-right flex items-center gap-3">
+                <span id="lastUpdate" class="text-xs text-slate-400">Atualizando...</span>
+                <span class="text-xs bg-slate-800 text-slate-300 px-3 py-1 rounded-full border border-slate-700">
+                    Arquivo: dados.xlsx
+                </span>
             </div>
         </div>
+    </header>
 
-        <!-- Tabela Detalhada por Endpoint -->
-        <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg overflow-x-auto">
-            <h2 class="text-xl font-bold mb-4 text-gray-200">Status dos Endpoints</h2>
-            <table class="w-full text-left text-sm text-gray-300">
-                <thead class="bg-gray-700 text-gray-100 uppercase text-xs">
-                    <tr>
-                        <th class="p-3">Endpoint</th>
-                        <th class="p-3 text-center">Erros</th>
-                        <th class="p-3 text-center">Status (Meta: 0)</th>
-                    </tr>
-                </thead>
-                <tbody id="table-body">
-                    <!-- Linhas geradas via JavaScript -->
-                </tbody>
-            </table>
-        </div>
-    </div>
+    <main class="max-w-7xl mx-auto p-6 space-y-6">
 
-    <!-- Script de Lógica -->
+        <!-- Métrica Principal - Zero Error Target -->
+        <section class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-slate-800/60 border border-slate-700 p-4 rounded-xl">
+                <p class="text-slate-400 text-xs font-medium uppercase">Total de Ocorrências</p>
+                <h2 class="text-2xl font-bold text-white mt-1" id="totalLogs">0</h2>
+            </div>
+            <div class="bg-rose-950/30 border border-rose-800/50 p-4 rounded-xl">
+                <p class="text-rose-400 text-xs font-medium uppercase">Endpoints com Falhas</p>
+                <h2 class="text-2xl font-bold text-rose-400 mt-1" id="totalErrors">0</h2>
+            </div>
+            <div class="bg-amber-950/30 border border-amber-800/50 p-4 rounded-xl">
+                <p class="text-amber-400 text-xs font-medium uppercase">Em Resolução / Processamento</p>
+                <h2 class="text-2xl font-bold text-amber-400 mt-1" id="inProgress">0</h2>
+            </div>
+            <div class="bg-emerald-950/30 border border-emerald-800/50 p-4 rounded-xl">
+                <p class="text-emerald-400 text-xs font-medium uppercase">Endpoints Zerados (100% OK)</p>
+                <h2 class="text-2xl font-bold text-emerald-400 mt-1" id="resolvedEndpoints">0%</h2>
+            </div>
+        </section>
+
+        <!-- Charts -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Gráfico de Rosca: Status de Resolução -->
+            <div class="bg-slate-800/60 border border-slate-700 p-4 rounded-xl">
+                <h3 class="text-sm font-semibold text-slate-200 mb-4">Progresso do Objetivo (Status de Registros)</h3>
+                <div class="h-64 flex justify-center items-center">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Gráfico de Barras: Erros por Endpoint -->
+            <div class="bg-slate-800/60 border border-slate-700 p-4 rounded-xl lg:col-span-2">
+                <h3 class="text-sm font-semibold text-slate-200 mb-4">Volume por Endpoint</h3>
+                <div class="h-64">
+                    <canvas id="endpointChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tabela Operacional de Gestão de Erros -->
+        <section class="bg-slate-800/60 border border-slate-700 rounded-xl overflow-hidden">
+            <div class="p-4 border-b border-slate-700 flex justify-between items-center">
+                <h3 class="text-sm font-semibold text-slate-200">Fila de Resolução por Endpoint</h3>
+                <input type="text" id="filterInput" placeholder="Filtrar endpoint..." class="bg-slate-900 text-xs px-3 py-1.5 rounded-lg border border-slate-700 focus:outline-none focus:border-emerald-500 w-64">
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-300">
+                    <thead class="bg-slate-900/80 uppercase text-slate-400 border-b border-slate-700">
+                        <tr>
+                            <th class="p-3">Endpoint / Serviço</th>
+                            <th class="p-3">Status</th>
+                            <th class="p-3">Qtd Ocorrências</th>
+                            <th class="p-3">Última Ocorrência</th>
+                            <th class="p-3 text-right">Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-700/50">
+                        <tr>
+                            <td colspan="5" class="p-4 text-center text-slate-500">Carregando dados...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Script de Processamento e Auto-Reload -->
     <script>
-        let chartInstance = null;
+        let statusChartInstance = null;
+        let endpointChartInstance = null;
 
-        // Estrutura esperada do Excel dados.xlsx (Exemplo):
-        // Coluna A: Endpoint | Coluna B: Erros
+        // Intervalo de atualização: 30 minutos em milissegundos
+        const THIRTY_MINUTES = 30 * 60 * 1000;
+
         async function carregarDadosExcel() {
-            const statusBadge = document.getElementById('status-badge');
             try {
                 // Adiciona timestamp para evitar cache do navegador na leitura do arquivo
-                const response = await fetch(`dados.xlsx?t=${new Date().getTime()}`);
-                if (!response.ok) throw new Error("Arquivo dados.xlsx não encontrado.");
-
-                const data = await response.arrayBuffer();
-                const workbook = XLSX.read(data, { type: 'array' });
-
-                // Lê a primeira aba da planilha
+                const response = await fetch(`./dados.xlsx?t=${new Date().getTime()}`);
+                if (!response.ok) throw new Error("Não foi possível carregar o arquivo dados.xlsx");
+                
+                const arrayBuffer = await response.arrayBuffer();
+                const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                
+                // Pega a primeira aba da planilha
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
                 
-                // Converte para JSON
-                const json = XLSX.utils.sheet_to_json(worksheet);
-
-                processarKPIs(json);
-
-                statusBadge.textContent = "Sincronizado";
-                statusBadge.className = "px-3 py-1 rounded-full text-xs font-semibold bg-green-900 text-green-300";
-                document.getElementById('last-updated').textContent = new Date().toLocaleTimeString('pt-BR');
-
+                // Converte para JSON em formato de matriz
+                const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                
+                processarDados(rawData);
+                
+                const agora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                document.getElementById('lastUpdate').innerText = `Última leitura: ${agora}`;
             } catch (error) {
-                console.error("Erro ao carregar o Excel:", error);
-                statusBadge.textContent = "Erro na Leitura";
-                statusBadge.className = "px-3 py-1 rounded-full text-xs font-semibold bg-red-900 text-red-300";
+                console.error("Erro ao ler dados.xlsx:", error);
+                document.getElementById('lastUpdate').innerText = "Erro ao ler dados.xlsx";
             }
         }
 
-        function processarKPIs(dados) {
-            // Mapeamento dinâmico: tenta buscar colunas 'Endpoint' e 'Erros' (independente de maiúsculas/minúsculas)
-            const listaEndpoints = dados.map(row => {
-                const keyEndpoint = Object.keys(row).find(k => k.toLowerCase().includes('endpoint')) || Object.keys(row)[0];
-                const keyErros = Object.keys(row).find(k => k.toLowerCase().includes('erro')) || Object.keys(row)[1];
-                
-                return {
-                    nome: row[keyEndpoint] || 'Desconhecido',
-                    erros: parseInt(row[keyErros]) || 0
-                };
+        function processarDados(rows) {
+            if (!rows || rows.length < 5) return;
+
+            // Encontrar o cabeçalho (linha index 3 no padrão da RFB / BritJ)
+            let headerIndex = -1;
+            for (let i = 0; i < rows.length; i++) {
+                if (rows[i] && rows[i].includes('Endpoint')) {
+                    headerIndex = i;
+                    break;
+                }
+            }
+
+            if (headerIndex === -1) headerIndex = 3;
+
+            const headers = rows[headerIndex];
+            const endpointIdx = headers.indexOf('Endpoint');
+            const statusIdx = headers.indexOf('Status');
+            const dataOcorrenciaIdx = headers.indexOf('Data Ocorrencia');
+
+            const dataRows = rows.slice(headerIndex + 1).filter(r => r[endpointIdx]);
+
+            // Métricas gerais
+            const totalLogs = dataRows.length;
+            const endpointStats = {};
+            const statusCounts = {};
+
+            dataRows.forEach(row => {
+                const endpoint = row[endpointIdx] || 'Outros';
+                const status = row[statusIdx] || 'DESCONHECIDO';
+                const dataOcorrencia = row[dataOcorrenciaIdx] || '-';
+
+                // Contagem por Status
+                statusCounts[status] = (statusCounts[status] || 0) + 1;
+
+                // Contagem por Endpoint
+                if (!endpointStats[endpoint]) {
+                    endpointStats[endpoint] = { total: 0, status: status, ultima: dataOcorrencia };
+                }
+                endpointStats[endpoint].total += 1;
             });
 
-            // Métricas de KPI
-            const totalEndpoints = listaEndpoints.length;
-            const totalErros = listaEndpoints.reduce((acc, curr) => acc + curr.erros, 0);
-            const endpointsZeroErros = listaEndpoints.filter(e => e.erros === 0).length;
-            const taxaConformidade = totalEndpoints > 0 ? ((endpointsZeroErros / totalEndpoints) * 100).toFixed(1) : 0;
-
-            // Atualização dos Cards
-            document.getElementById('kpi-total-endpoints').textContent = totalEndpoints;
-            document.getElementById('kpi-total-erros').textContent = totalErros;
-            document.getElementById('kpi-zero-erros').textContent = endpointsZeroErros;
-            document.getElementById('kpi-conformidade').textContent = `${taxaConformidade}%`;
-
-            // Atualização da Tabela
-            const tbody = document.getElementById('table-body');
-            tbody.innerHTML = '';
-
-            listaEndpoints.forEach(item => {
-                const tr = document.createElement('tr');
-                tr.className = "border-b border-gray-700 hover:bg-gray-750";
-                
-                const atingiuMeta = item.erros === 0;
-                const statusTag = atingiuMeta 
-                    ? '<span class="bg-green-900 text-green-300 px-2 py-1 rounded text-xs font-semibold">Meta Atingida</span>'
-                    : '<span class="bg-red-900 text-red-300 px-2 py-1 rounded text-xs font-semibold">Fora da Meta</span>';
-
-                tr.innerHTML = `
-                    <td class="p-3 font-mono text-gray-200">${item.nome}</td>
-                    <td class="p-3 text-center font-bold ${item.erros > 0 ? 'text-red-400' : 'text-green-400'}">${item.erros}</td>
-                    <td class="p-3 text-center">${statusTag}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-
-            // Atualização do Gráfico
-            renderizarGrafico(listaEndpoints);
-        }
-
-        function renderizarGrafico(dados) {
-            const ctx = document.getElementById('chartErros').getContext('2d');
+            // Atualizar Cards
+            document.getElementById('totalLogs').innerText = totalLogs.toLocaleString('pt-BR');
             
-            const labels = dados.map(d => d.nome);
-            const valores = dados.map(d => d.erros);
-            const cores = dados.map(d => d.erros === 0 ? '#10B981' : '#EF4444');
+            const totalComErro = Object.keys(endpointStats).filter(ep => endpointStats[ep].status !== 'COMPLETO' && endpointStats[ep].status !== '200 OK').length;
+            const totalEmAnalise = statusCounts['EM PROCESSAMENTO'] || statusCounts['PENDENTE'] || 0;
+            const totalEndpoints = Object.keys(endpointStats).length;
+            const totalZerados = totalEndpoints - totalComErro;
+            const pctZerados = totalEndpoints > 0 ? Math.round((totalZerados / totalEndpoints) * 100) : 100;
 
-            if (chartInstance) {
-                chartInstance.destroy();
-            }
+            document.getElementById('totalErrors').innerText = totalComErro;
+            document.getElementById('inProgress').innerText = totalEmAnalise;
+            document.getElementById('resolvedEndpoints').innerText = `${pctZerados}%`;
 
-            chartInstance = new Chart(ctx, {
-                type: 'bar',
+            // Atualizar Gráficos
+            renderCharts(statusCounts, endpointStats);
+
+            // Atualizar Tabela
+            renderTable(endpointStats);
+        }
+
+        function renderCharts(statusCounts, endpointStats) {
+            // Chart 1: Status Doughnut
+            const statusLabels = Object.keys(statusCounts);
+            const statusValues = Object.values(statusCounts);
+
+            if (statusChartInstance) statusChartInstance.destroy();
+            const ctxStatus = document.getElementById('statusChart').getContext('2d');
+            statusChartInstance = new Chart(ctxStatus, {
+                type: 'doughnut',
                 data: {
-                    labels: labels,
+                    labels: statusLabels,
                     datasets: [{
-                        label: 'Quantidade de Erros',
-                        data: valores,
-                        backgroundColor: cores,
-                        borderRadius: 6
+                        data: statusValues,
+                        backgroundColor: ['#10b981', '#f59e0b', '#f43f5e', '#3b82f6', '#8b5cf6'],
+                        borderWidth: 0
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { display: false }
-                    },
-                    scales: {
-                        x: { ticks: { color: '#9CA3AF' }, grid: { display: false } },
-                        y: { ticks: { color: '#9CA3AF' }, grid: { color: '#374151' }, beginAtZero: true }
+                        legend: { position: 'bottom', labels: { color: '#94a3b8' } }
                     }
+                }
+            });
+
+            // Chart 2: Endpoints Bar
+            const endpointLabels = Object.keys(endpointStats).slice(0, 7); // Top 7
+            const endpointValues = endpointLabels.map(ep => endpointStats[ep].total);
+
+            if (endpointChartInstance) endpointChartInstance.destroy();
+            const ctxEndpoint = document.getElementById('endpointChart').getContext('2d');
+            endpointChartInstance = new Chart(ctxEndpoint, {
+                type: 'bar',
+                data: {
+                    labels: endpointLabels,
+                    datasets: [{
+                        label: 'Volume de Logs',
+                        data: endpointValues,
+                        backgroundColor: '#10b981',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { ticks: { color: '#94a3b8' }, grid: { display: false } },
+                        y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
+                    },
+                    plugins: { legend: { display: false } }
                 }
             });
         }
 
-        // Leitura Inicial ao carregar a página
+        function renderTable(endpointStats) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            Object.entries(endpointStats).forEach(([endpoint, info]) => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-700/30';
+
+                const isOk = info.status === 'COMPLETO' || info.status === '200 OK';
+                const statusBadge = isOk 
+                    ? `<span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">${info.status}</span>`
+                    : `<span class="px-2 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-800">${info.status}</span>`;
+
+                const btnAction = isOk 
+                    ? `<button class="bg-slate-700 text-slate-400 px-2.5 py-1 rounded cursor-not-allowed">Concluído</button>`
+                    : `<button class="bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded transition">Tratar</button>`;
+
+                tr.innerHTML = `
+                    <td class="p-3 font-mono text-emerald-300">${endpoint}</td>
+                    <td class="p-3">${statusBadge}</td>
+                    <td class="p-3 font-bold ${isOk ? 'text-emerald-400' : 'text-rose-400'}">${info.total}</td>
+                    <td class="p-3 text-slate-400">${info.ultima}</td>
+                    <td class="p-3 text-right">${btnAction}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Filtro em tempo real da tabela
+        document.getElementById('filterInput').addEventListener('input', function(e) {
+            const filterValue = e.target.value.toLowerCase();
+            const rows = document.querySelectorAll('#tableBody tr');
+            rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(filterValue) ? '' : 'none';
+            });
+        });
+
+        // Carrega imediatamente ao abrir a página
         carregarDadosExcel();
 
-        // Configuração de leitura automática a cada 30 minutos (1.800.000 ms)
-        const trintaMinutosEmMs = 30 * 60 * 1000;
-        setInterval(carregarDadosExcel, trintaMinutosEmMs);
+        // Configura a releitura automática a cada 30 minutos
+        setInterval(carregarDadosExcel, THIRTY_MINUTES);
     </script>
 </body>
 </html>
