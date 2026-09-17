@@ -74,9 +74,9 @@
                 </div>
             </div>
 
-            <!-- Gráfico de Barras: Erros por Endpoint -->
+            <!-- Gráfico de Barras: Volume por Endpoint por Status -->
             <div class="bg-slate-800/60 border border-slate-700 p-4 rounded-xl lg:col-span-2">
-                <h3 class="text-sm font-semibold text-slate-200 mb-4">Volume por Endpoint</h3>
+                <h3 class="text-sm font-semibold text-slate-200 mb-4">Volume por Endpoint (por Status)</h3>
                 <div class="h-64">
                     <canvas id="endpointChart"></canvas>
                 </div>
@@ -118,6 +118,25 @@
 
         // Intervalo de atualização: 30 minutos em milissegundos
         const THIRTY_MINUTES = 30 * 60 * 1000;
+
+        // Paleta de cores dinâmica para os status no gráfico
+        const statusColors = {
+            'sucesso': '#10b981',
+            'ok': '#10b981',
+            'processado': '#10b981',
+            'erro': '#f43f5e',
+            'falha': '#f43f5e',
+            'enviado': '#f59e0b',
+            'pendente': '#3b82f6',
+            'desconhecido': '#8b5cf6'
+        };
+
+        const defaultColors = ['#10b981', '#f59e0b', '#f43f5e', '#3b82f6', '#8b5cf6', '#ec4899', '#6366f1'];
+
+        function getColorForStatus(status, index) {
+            const statusLower = status.toLowerCase();
+            return statusColors[statusLower] || defaultColors[index % defaultColors.length];
+        }
 
         async function carregarDadosExcel() {
             const btn = document.getElementById('btnRefresh');
@@ -197,24 +216,22 @@
 
                 const statusLower = status.toLowerCase();
 
-                // Incrementa a quantidade total de falhas se o status for erro ou enviado
                 if (statusFalhas.includes(statusLower)) {
                     totalQtdFalhas += 1;
                 }
 
                 if (!endpointStats[endpoint]) {
-                    endpointStats[endpoint] = { total: 0, status: status, temFalha: false, ultima: dataOcorrencia };
+                    endpointStats[endpoint] = { total: 0, status: status, temFalha: false, ultima: dataOcorrencia, statusBreakdown: {} };
                 }
 
                 endpointStats[endpoint].total += 1;
+                endpointStats[endpoint].statusBreakdown[status] = (endpointStats[endpoint].statusBreakdown[status] || 0) + 1;
 
-                // Se houver qualquer registro com status 'erro' ou 'enviado', marca o endpoint com falha
                 if (statusFalhas.includes(statusLower)) {
                     endpointStats[endpoint].temFalha = true;
                 }
             });
 
-            // Contagem de Endpoints com Falhas (considerando os status 'erro' e 'enviado')
             const endpointsComFalhas = Object.keys(endpointStats).filter(ep => endpointStats[ep].temFalha).length;
             const totalEndpoints = Object.keys(endpointStats).length;
             const totalZerados = totalEndpoints - endpointsComFalhas;
@@ -243,7 +260,7 @@
                     labels: statusLabels,
                     datasets: [{
                         data: statusValues,
-                        backgroundColor: ['#10b981', '#f59e0b', '#f43f5e', '#3b82f6', '#8b5cf6'],
+                        backgroundColor: statusLabels.map((st, i) => getColorForStatus(st, i)),
                         borderWidth: 0
                     }]
                 },
@@ -254,8 +271,18 @@
                 }
             });
 
+            // Processamento para o gráfico empilhado de Endpoint por Status
             const endpointLabels = Object.keys(endpointStats).slice(0, 7);
-            const endpointValues = endpointLabels.map(ep => endpointStats[ep].total);
+            const allStatuses = Array.from(new Set(Object.values(endpointStats).flatMap(ep => Object.keys(ep.statusBreakdown))));
+
+            const datasets = allStatuses.map((st, idx) => {
+                return {
+                    label: st,
+                    data: endpointLabels.map(ep => endpointStats[ep].statusBreakdown[st] || 0),
+                    backgroundColor: getColorForStatus(st, idx),
+                    borderRadius: 4
+                };
+            });
 
             if (endpointChartInstance) endpointChartInstance.destroy();
             const ctxEndpoint = document.getElementById('endpointChart').getContext('2d');
@@ -263,21 +290,30 @@
                 type: 'bar',
                 data: {
                     labels: endpointLabels,
-                    datasets: [{
-                        label: 'Volume de Logs',
-                        data: endpointValues,
-                        backgroundColor: '#10b981',
-                        borderRadius: 6
-                    }]
+                    datasets: datasets
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: {
-                        x: { ticks: { color: '#94a3b8' }, grid: { display: false } },
-                        y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
+                        x: { 
+                            stacked: true,
+                            ticks: { color: '#94a3b8' }, 
+                            grid: { display: false } 
+                        },
+                        y: { 
+                            stacked: true,
+                            ticks: { color: '#94a3b8' }, 
+                            grid: { color: '#334155' } 
+                        }
                     },
-                    plugins: { legend: { display: false } }
+                    plugins: {
+                        legend: { 
+                            display: true, 
+                            position: 'top', 
+                            labels: { color: '#94a3b8', boxWidth: 12 } 
+                        }
+                    }
                 }
             });
         }
