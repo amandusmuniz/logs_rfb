@@ -111,15 +111,51 @@
 
     </main>
 
-    <!-- Script de Processamento, Botão Manual e Auto-Reload -->
+    <!-- MODAL DE TRATAMENTO / DETALHES DE REGISTROS -->
+    <div id="modalTratar" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex justify-center items-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-5xl w-full max-h-[90vh] flex flex-col shadow-2xl">
+            <!-- Header do Modal -->
+            <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-950/50 rounded-t-xl">
+                <div>
+                    <h3 class="text-base font-bold text-slate-100 flex items-center gap-2">
+                        Tratamento de Ocorrências: <span id="modalEndpointTitle" class="text-emerald-400 font-mono"></span>
+                    </h3>
+                    <p class="text-xs text-slate-400 mt-0.5">
+                        Status selecionado: <span id="modalStatusBadge" class="font-bold"></span>
+                    </p>
+                </div>
+                <button onclick="fecharModal()" class="text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 p-1.5 rounded-lg transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Corpo do Modal / Lista de Registros -->
+            <div class="p-4 overflow-y-auto space-y-4 flex-1">
+                <div id="modalRecordsList" class="space-y-3">
+                    <!-- Registros inseridos via JS -->
+                </div>
+            </div>
+
+            <!-- Footer do Modal -->
+            <div class="p-3 border-t border-slate-800 bg-slate-950/50 rounded-b-xl flex justify-between items-center text-xs text-slate-400">
+                <span>Total de registros nesta fila: <strong id="modalTotalCount" class="text-slate-200">0</strong></span>
+                <button onclick="fecharModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg transition">
+                    Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script de Processamento e Manipulação de Eventos -->
     <script>
         let statusChartInstance = null;
         let endpointChartInstance = null;
+        let globalDataRows = []; // Armazena todos os registros do Excel processados
 
-        // Intervalo de atualização: 30 minutos em milissegundos
         const THIRTY_MINUTES = 30 * 60 * 1000;
 
-        // Paleta de cores dinâmica para os status no gráfico
         const statusColors = {
             'sucesso': '#10b981',
             'ok': '#10b981',
@@ -194,28 +230,44 @@
             if (headerIndex === -1) headerIndex = 3;
 
             const headers = rows[headerIndex];
+            const gkeyIdx = headers.indexOf('Gkey');
+            const idEventoIdx = headers.indexOf('Id Evento');
+            const idOrigemIdx = headers.indexOf('Id Origem');
             const endpointIdx = headers.indexOf('Endpoint');
             const statusIdx = headers.indexOf('Status');
             const dataOcorrenciaIdx = headers.indexOf('Data Ocorrencia');
+            const dataEnvioIdx = headers.indexOf('Data Envio');
+            const jsonIdx = headers.indexOf('Json');
+            const jsonRetornoIdx = headers.indexOf('Json Retorno');
 
             const dataRows = rows.slice(headerIndex + 1).filter(r => r[endpointIdx]);
 
-            const totalLogs = dataRows.length;
+            // Mapeamento global de objetos estruturados
+            globalDataRows = dataRows.map(r => ({
+                gkey: r[gkeyIdx] || '-',
+                idEvento: r[idEventoIdx] || '-',
+                idOrigem: r[idOrigemIdx] || '-',
+                endpoint: r[endpointIdx] || 'Outros',
+                status: String(r[statusIdx] || 'DESCONHECIDO').trim(),
+                dataOcorrencia: r[dataOcorrenciaIdx] || '-',
+                dataEnvio: r[dataEnvioIdx] || '-',
+                json: r[jsonIdx] || '',
+                jsonRetorno: r[jsonRetornoIdx] || ''
+            }));
+
+            const totalLogs = globalDataRows.length;
             const endpointStats = {};
             const statusCounts = {};
 
-            // Status considerados como alvo da fila
             const statusFalhas = ['erro', 'enviado'];
             let totalQtdFalhas = 0;
 
-            dataRows.forEach(row => {
-                const endpoint = row[endpointIdx] || 'Outros';
-                const status = String(row[statusIdx] || 'DESCONHECIDO').trim();
-                const dataOcorrencia = row[dataOcorrenciaIdx] || '-';
+            globalDataRows.forEach(item => {
+                const endpoint = item.endpoint;
+                const status = item.status;
+                const statusLower = status.toLowerCase();
 
                 statusCounts[status] = (statusCounts[status] || 0) + 1;
-
-                const statusLower = status.toLowerCase();
 
                 if (statusFalhas.includes(statusLower)) {
                     totalQtdFalhas += 1;
@@ -227,7 +279,7 @@
 
                 endpointStats[endpoint].total += 1;
                 endpointStats[endpoint].statusBreakdown[status] = (endpointStats[endpoint].statusBreakdown[status] || 0) + 1;
-                endpointStats[endpoint].ultimasOcorrencias[status] = dataOcorrencia;
+                endpointStats[endpoint].ultimasOcorrencias[status] = item.dataOcorrencia;
 
                 if (statusFalhas.includes(statusLower)) {
                     endpointStats[endpoint].temFalha = true;
@@ -245,7 +297,6 @@
             document.getElementById('inProgress').innerText = totalQtdFalhas.toLocaleString('pt-BR');
             document.getElementById('resolvedEndpoints').innerText = `${pctZerados}%`;
 
-            // Gráficos e Tabela
             renderCharts(statusCounts, endpointStats);
             renderTable(endpointStats);
         }
@@ -326,7 +377,6 @@
             const statusAlvo = ['erro', 'enviado'];
             const itensFila = [];
 
-            // 1. Extração e filtragem dos registros
             Object.entries(endpointStats).forEach(([endpoint, info]) => {
                 Object.entries(info.statusBreakdown).forEach(([status, quantidade]) => {
                     const statusLower = status.toLowerCase();
@@ -342,10 +392,8 @@
                 });
             });
 
-            // 2. Ordenação por quantidade de ocorrências (Maior para Menor)
             itensFila.sort((a, b) => b.quantidade - a.quantidade);
 
-            // 3. Renderização na tabela
             itensFila.forEach(item => {
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-slate-700/30';
@@ -357,7 +405,9 @@
                     : 'bg-amber-950 text-amber-400 border-amber-800';
 
                 const statusBadge = `<span class="px-2 py-0.5 rounded border ${statusClass}">${item.status}</span>`;
-                const btnAction = `<button class="bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded transition shadow-sm">Tratar</button>`;
+                
+                // Botão "Tratar" que invoca o modal repassando o endpoint e status
+                const btnAction = `<button onclick="abrirModalTratar('${item.endpoint}', '${item.status}')" class="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white px-3 py-1 rounded transition shadow-sm font-medium">Tratar</button>`;
 
                 tr.innerHTML = `
                     <td class="p-3 font-mono text-emerald-300">${item.endpoint}</td>
@@ -380,7 +430,81 @@
             }
         }
 
-        // Filtro em tempo real
+        // LÓGICA DO MODAL DE TRATAMENTO
+        function abrirModalTratar(endpoint, status) {
+            const modal = document.getElementById('modalTratar');
+            document.getElementById('modalEndpointTitle').innerText = endpoint;
+            
+            const badgeEl = document.getElementById('modalStatusBadge');
+            badgeEl.innerText = status;
+            badgeEl.className = status.toLowerCase().includes('erro') ? 'text-rose-400' : 'text-amber-400';
+
+            const registrosFiltrados = globalDataRows.filter(r => r.endpoint === endpoint && r.status === status);
+            document.getElementById('modalTotalCount').innerText = registrosFiltrados.length;
+
+            const listContainer = document.getElementById('modalRecordsList');
+            listContainer.innerHTML = '';
+
+            registrosFiltrados.forEach((rec, idx) => {
+                let jsonFormatado = 'Nenhum Json Retorno registrado.';
+                if (rec.jsonRetorno) {
+                    try {
+                        const parsed = typeof rec.jsonRetorno === 'object' ? rec.jsonRetorno : JSON.parse(rec.jsonRetorno);
+                        jsonFormatado = JSON.stringify(parsed, null, 2);
+                    } catch (e) {
+                        jsonFormatado = rec.jsonRetorno;
+                    }
+                }
+
+                const card = document.createElement('div');
+                card.className = 'bg-slate-800/80 border border-slate-700/80 rounded-lg p-4 space-y-3';
+
+                card.innerHTML = `
+                    <div class="flex flex-wrap justify-between items-center gap-2 border-b border-slate-700/50 pb-2 text-xs">
+                        <div class="flex items-center gap-3">
+                            <span class="bg-slate-900 text-emerald-400 px-2 py-0.5 rounded font-mono border border-slate-700">#${idx + 1}</span>
+                            <span><strong>Id Evento:</strong> <span class="text-slate-200">${rec.idEvento}</span></span>
+                            <span><strong>Id Origem:</strong> <span class="text-slate-200">${rec.idOrigem}</span></span>
+                        </div>
+                        <div class="text-slate-400 text-right">
+                            <span><strong>Ocorrência:</strong> ${rec.dataOcorrencia}</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs font-semibold text-rose-400 flex items-center gap-1">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                Mensagem de Retorno / JSON Retorno
+                            </span>
+                            <button onclick="toggleJsonView('jsonView_${idx}')" class="text-[11px] text-slate-400 hover:text-emerald-400 underline">
+                                Expandir / Ocultar
+                            </button>
+                        </div>
+                        <pre id="jsonView_${idx}" class="bg-slate-950 p-3 rounded-lg text-emerald-300 font-mono text-[11px] overflow-x-auto max-h-60 whitespace-pre-wrap border border-slate-800">${jsonFormatado}</pre>
+                    </div>
+                `;
+
+                listContainer.appendChild(card);
+            });
+
+            modal.classList.remove('hidden');
+        }
+
+        function toggleJsonView(id) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.classList.toggle('hidden');
+            }
+        }
+
+        function fecharModal() {
+            document.getElementById('modalTratar').classList.add('hidden');
+        }
+
+        // Filtro da tabela principal
         document.getElementById('filterInput').addEventListener('input', function(e) {
             const filterValue = e.target.value.toLowerCase();
             const rows = document.querySelectorAll('#tableBody tr');
@@ -390,10 +514,8 @@
             });
         });
 
-        // Leitura inicial
+        // Leitura e agendamento
         carregarDadosExcel();
-
-        // Agendamento a cada 30 minutos
         setInterval(carregarDadosExcel, THIRTY_MINUTES);
     </script>
 </body>
