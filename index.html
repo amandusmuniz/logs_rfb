@@ -259,7 +259,7 @@
             const endpointStats = {};
             const statusCounts = {};
 
-            const statusFalhas = ['erro', 'enviado'];
+            const statusFalhas = ['erro', 'enviado','incompleto'];
             let totalQtdFalhas = 0;
 
             globalDataRows.forEach(item => {
@@ -374,7 +374,7 @@
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
 
-            const statusAlvo = ['erro', 'enviado'];
+            const statusAlvo = ['erro', 'enviado','incompleto'];
             const itensFila = [];
 
             Object.entries(endpointStats).forEach(([endpoint, info]) => {
