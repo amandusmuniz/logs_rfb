@@ -259,7 +259,7 @@
             const endpointStats = {};
             const statusCounts = {};
 
-            const statusFalhas = ['erro', 'enviado','incompleto'];
+            const statusFalhas = ['erro', 'enviado', 'incompleto'];
             let totalQtdFalhas = 0;
 
             globalDataRows.forEach(item => {
@@ -287,9 +287,12 @@
             });
 
             const endpointsComFalhas = Object.keys(endpointStats).filter(ep => endpointStats[ep].temFalha).length;
-            const totalEndpoints = Object.keys(endpointStats).length;
-            const totalZerados = totalEndpoints - endpointsComFalhas;
-            const pctZerados = totalEndpoints > 0 ? Math.round((totalZerados / totalEndpoints) * 100) : 100;
+            
+            // Ajuste na métrica "Endpoints Zerados (100% OK)":
+            // 100% OK quando a quantidade total de erros/falhas for 0.
+            const pctZerados = totalQtdFalhas === 0 
+                ? 100 
+                : (totalLogs > 0 ? Math.round(((totalLogs - totalQtdFalhas) / totalLogs) * 100) : 100);
 
             // Atualização dos Cards
             document.getElementById('totalLogs').innerText = totalLogs.toLocaleString('pt-BR');
@@ -374,7 +377,7 @@
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
 
-            const statusAlvo = ['erro', 'enviado','incompleto'];
+            const statusAlvo = ['erro', 'enviado', 'incompleto'];
             const itensFila = [];
 
             Object.entries(endpointStats).forEach(([endpoint, info]) => {
